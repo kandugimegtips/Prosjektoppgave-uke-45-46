@@ -1,0 +1,1320 @@
+<!DOCTYPE html>
+<html lang="no" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Balance of Vanum | Episk Action-RPG</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        vanum: {
+                            dark: '#0b0f18',
+                            panel: '#131924',
+                            gold: '#f59e0b',
+                            cyan: '#38bdf8',
+                            purple: '#a855f7'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts: Cinzel & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            color: #f3f4f6;
+            background-color: #0b0f18;
+        }
+        .font-fantasy {
+            font-family: 'Cinzel', serif;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+        .glass-panel {
+            background: rgba(11, 15, 24, 0.85);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.75);
+        }
+        .skill-btn {
+            transition: transform 0.12s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.2s, box-shadow 0.2s;
+        }
+        .skill-btn:hover:not(:disabled) {
+            transform: translateY(-4px) scale(1.04);
+        }
+        .skill-btn:active:not(:disabled) {
+            transform: translateY(0px) scale(0.97);
+        }
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 18px rgba(56, 189, 248, 0.45), 0 0 34px rgba(245, 158, 11, 0.35); }
+            50% { box-shadow: 0 0 28px rgba(56, 189, 248, 0.85), 0 0 52px rgba(245, 158, 11, 0.7); }
+        }
+        .harmony-active {
+            animation: pulseGlow 2s infinite ease-in-out;
+            border-color: rgba(251, 191, 36, 0.85) !important;
+        }
+        @keyframes mistDrift {
+            0% { transform: translateX(-3%) scale(1.02); opacity: 0.75; }
+            50% { transform: translateX(3%) scale(1.06); opacity: 0.95; }
+            100% { transform: translateX(-3%) scale(1.02); opacity: 0.75; }
+        }
+        .animate-mist {
+            animation: mistDrift 14s ease-in-out infinite;
+        }
+        @keyframes windowFlicker {
+            0%, 100% { opacity: 0.85; }
+            50% { opacity: 1; }
+            72% { opacity: 0.65; }
+        }
+        .animate-torch {
+            animation: windowFlicker 3.2s ease-in-out infinite;
+        }
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.5);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.6);
+            border-radius: 9999px;
+        }
+    </style>
+</head>
+<body class="relative w-screen h-screen overflow-hidden select-none">
+
+    <!-- Spill-lerret -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Topp HUD (Helse, Vanum, Balanse-måler, Bølge, Poeng & Minikart) -->
+    <div id="hudTop" class="hidden fixed top-0 left-0 right-0 z-20 p-3 sm:p-4 pointer-events-none flex flex-col gap-2">
+        <div class="max-w-7xl w-full mx-auto flex flex-wrap items-start justify-between gap-3">
+            
+            <!-- Spillerstatus: Helse & Vanum -->
+            <div class="glass-panel rounded-2xl px-4 py-2.5 flex flex-col gap-2 min-w-[220px] sm:min-w-[260px] pointer-events-auto">
+                <div>
+                    <div class="flex justify-between text-xs font-semibold tracking-wider uppercase mb-1">
+                        <span class="text-rose-400 flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-rose-500 inline-block"></span> Livskraft
+                        </span>
+                        <span id="hpText" class="text-slate-200">100 / 100</span>
+                    </div>
+                    <div class="w-full h-3 bg-slate-900/90 rounded-full overflow-hidden border border-slate-700/70 p-0.5">
+                        <div id="hpBar" class="h-full rounded-full bg-gradient-to-r from-rose-600 via-red-500 to-rose-400 transition-all duration-150" style="width: 100%"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex justify-between text-xs font-semibold tracking-wider uppercase mb-1">
+                        <span class="text-cyan-300 flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-cyan-400 inline-block"></span> Vanum-energi
+                        </span>
+                        <span id="manaText" class="text-slate-200">100 / 100</span>
+                    </div>
+                    <div class="w-full h-2.5 bg-slate-900/90 rounded-full overflow-hidden border border-slate-700/70 p-0.5">
+                        <div id="manaBar" class="h-full rounded-full bg-gradient-to-r from-indigo-500 via-cyan-400 to-teal-300 transition-all duration-100" style="width: 100%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Balance of Vanum Måler (Senter) -->
+            <div id="balanceContainer" class="glass-panel rounded-2xl px-4 py-2.5 flex flex-col items-center min-w-[250px] sm:min-w-[320px] pointer-events-auto transition-all duration-300">
+                <div class="w-full flex justify-between items-center text-[11px] font-bold tracking-wider uppercase mb-1">
+                    <span class="text-amber-300 flex items-center gap-1">☀️ Lys / Orden</span>
+                    <span id="balanceStatusText" class="text-emerald-300 font-fantasy tracking-widest text-xs">VANUM HARMONI (+35% SKADE)</span>
+                    <span class="text-purple-400 flex items-center gap-1">Kaos / Mørke 🌑</span>
+                </div>
+                <div class="relative w-full h-3.5 bg-slate-950 rounded-full border border-slate-700/80 overflow-hidden flex items-center">
+                    <div class="absolute inset-0 bg-gradient-to-r from-amber-400/35 via-emerald-400/45 to-purple-600/35"></div>
+                    <div class="absolute left-[35%] right-[35%] top-0 bottom-0 bg-emerald-400/30 border-x border-emerald-300/60"></div>
+                    <div id="balanceIndicator" class="absolute top-0 bottom-0 w-3 -ml-1.5 rounded-full bg-white shadow-[0_0_12px_#fff] transition-all duration-200" style="left: 50%;"></div>
+                </div>
+                <div class="text-[10px] text-slate-400 mt-1 text-center">
+                    Kombiner <span class="text-amber-300">Vann/Luft/Lys</span> og <span class="text-purple-300">Ild/Jord/Mørke</span> for Harmoni
+                </div>
+            </div>
+
+            <!-- Bølge, Poeng, Lyd & Minikart -->
+            <div class="flex items-start gap-2.5 pointer-events-auto">
+                <div class="glass-panel rounded-2xl px-3.5 py-2 flex items-center gap-3.5">
+                    <div class="text-center">
+                        <div class="text-[10px] uppercase tracking-widest text-slate-400 font-semibold">Bølge</div>
+                        <div id="waveText" class="font-fantasy text-lg font-bold text-amber-400 leading-tight">1</div>
+                    </div>
+                    <div class="h-7 w-px bg-slate-700/70"></div>
+                    <div class="text-center">
+                        <div class="text-[10px] uppercase tracking-widest text-slate-400 font-semibold">Troll</div>
+                        <div id="killsText" class="font-fantasy text-lg font-bold text-slate-100 leading-tight">0</div>
+                    </div>
+                    <div class="h-7 w-px bg-slate-700/70"></div>
+                    <div class="text-center">
+                        <div class="text-[10px] uppercase tracking-widest text-slate-400 font-semibold">Poeng</div>
+                        <div id="scoreText" class="font-fantasy text-lg font-bold text-cyan-300 leading-tight">0</div>
+                    </div>
+                    <button id="muteBtn" title="Slå lyd av/på" class="ml-0.5 p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700/90 border border-slate-600/50 text-slate-200 transition cursor-pointer">
+                        <svg id="soundOnIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
+                        <svg id="soundOffIcon" class="w-4 h-4 hidden text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path></svg>
+                    </button>
+                </div>
+
+                <!-- Vanum Minikart -->
+                <div class="glass-panel rounded-2xl p-1.5 hidden sm:block">
+                    <canvas id="minimapCanvas" width="120" height="120" class="rounded-xl block w-[110px] h-[110px]"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bølge-kunngjøring banner -->
+        <div id="waveBanner" class="mx-auto mt-1 px-6 py-2 rounded-full glass-panel border-amber-400/40 text-center opacity-0 transform -translate-y-4 transition-all duration-500">
+            <span id="waveBannerText" class="font-fantasy text-base sm:text-lg font-bold tracking-widest text-amber-300 uppercase">Bølge 1: Skogstrollene våkner</span>
+        </div>
+    </div>
+
+    <!-- Bunn HUD: 6 Elemental Powers + Kontrollhint -->
+    <div id="hudBottom" class="hidden fixed bottom-0 left-0 right-0 z-20 p-3 sm:p-4 pointer-events-none flex flex-col items-center gap-2">
+        <div class="px-3.5 py-1 rounded-full bg-slate-950/75 border border-slate-800/80 text-[11px] text-slate-300 flex flex-wrap justify-center gap-x-4 gap-y-1 backdrop-blur-sm">
+            <span><strong class="text-cyan-300">Mus:</strong> Styr retning & sikt på troll</span>
+            <span><strong class="text-amber-300">Venstreklikk:</strong> Vanum-skudd</span>
+            <span><strong class="text-purple-300">1–6 / Q,E,R,Space,F,Shift:</strong> Elementkrefter</span>
+        </div>
+        <div id="skillBar" class="glass-panel rounded-2xl p-2 sm:p-2.5 flex items-center justify-center gap-2 sm:gap-3 pointer-events-auto max-w-full overflow-x-auto">
+            <!-- Genereres dynamisk via JS -->
+        </div>
+    </div>
+
+    <!-- Startskjerm med Omslagsbilde av Balance of Vanum (Henrik M. Gustavsen) -->
+    <div id="startScreen" class="fixed inset-0 z-30 flex items-center justify-center p-3 sm:p-6 bg-[#131715] overflow-y-auto">
+        
+        <!-- Fullskjerms atmosfærisk bakgrunn inspirert av bokomslaget -->
+        <div class="fixed inset-0 pointer-events-none overflow-hidden">
+            <!-- Egendefinert opplastet omslagsbilde -->
+            <img id="customCoverBg" alt="Balance of Vanum Omslag" class="hidden w-full h-full object-cover object-center opacity-55 blur-[2px] scale-105" />
+
+            <!-- Illustrert Gotisk Citadell & Tåkeskog SVG-bakgrunn som matcher bokomslaget -->
+            <svg id="defaultCoverArt" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" class="w-full h-full">
+                <defs>
+                    <linearGradient id="skyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#1c2220"/>
+                        <stop offset="45%" stop-color="#2c3330"/>
+                        <stop offset="78%" stop-color="#1f2523"/>
+                        <stop offset="100%" stop-color="#0d1110"/>
+                    </linearGradient>
+                    <radialGradient id="horizonGlow" cx="24%" cy="62%" r="48%">
+                        <stop offset="0%" stop-color="#a3b87c" stop-opacity="0.48"/>
+                        <stop offset="40%" stop-color="#6b7c59" stop-opacity="0.22"/>
+                        <stop offset="100%" stop-color="#1c2220" stop-opacity="0"/>
+                    </radialGradient>
+                    <linearGradient id="towerStone" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="#272e2b"/>
+                        <stop offset="42%" stop-color="#3a423e"/>
+                        <stop offset="75%" stop-color="#222825"/>
+                        <stop offset="100%" stop-color="#141816"/>
+                    </linearGradient>
+                    <linearGradient id="towerShadow" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="#181d1b"/>
+                        <stop offset="100%" stop-color="#0e1210"/>
+                    </linearGradient>
+                    <linearGradient id="mistGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+                        <stop offset="0%" stop-color="#131815" stop-opacity="0.95"/>
+                        <stop offset="35%" stop-color="#8b968d" stop-opacity="0.38"/>
+                        <stop offset="70%" stop-color="#a8b2aa" stop-opacity="0.14"/>
+                        <stop offset="100%" stop-color="#a8b2aa" stop-opacity="0"/>
+                    </linearGradient>
+                    <linearGradient id="pathGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stop-color="#4e5842"/>
+                        <stop offset="50%" stop-color="#2f3728"/>
+                        <stop offset="100%" stop-color="#111510"/>
+                    </linearGradient>
+                    <filter id="softBlur" x="-20%" y="-20%" width="140%" height="140%">
+                        <feGaussianBlur stdDeviation="24"/>
+                    </filter>
+                    <filter id="glowAmber" x="-50%" y="-50%" width="200%" height="200%">
+                        <feGaussianBlur stdDeviation="4" result="blur"/>
+                        <feMerge>
+                            <feMergeNode in="blur"/>
+                            <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                    </filter>
+                </defs>
+
+                <!-- Himmel -->
+                <rect width="1600" height="1000" fill="url(#skyGrad)"/>
+                <rect width="1600" height="1000" fill="url(#horizonGlow)"/>
+
+                <!-- Dramatiske stormskyer -->
+                <g filter="url(#softBlur)" opacity="0.65">
+                    <ellipse cx="320" cy="180" rx="420" ry="110" fill="#141917"/>
+                    <ellipse cx="1180" cy="140" rx="480" ry="130" fill="#121615"/>
+                    <ellipse cx="860" cy="290" rx="520" ry="120" fill="#3a423e"/>
+                    <ellipse cx="420" cy="640" rx="340" ry="120" fill="#cfd6cf" opacity="0.55"/>
+                </g>
+
+                <!-- DET STORE GOTISKE CITADELL-TÅRNET -->
+                <g transform="translate(535, 35)">
+                    <polygon points="245,0 226,88 264,88" fill="#1b211f"/>
+                    <line x1="245" y1="-14" x2="245" y2="10" stroke="#1b211f" stroke-width="2.5"/>
+
+                    <polygon points="185,55 155,135 215,135" fill="#232a27"/>
+                    <polygon points="305,52 275,135 335,135" fill="#1a201e"/>
+                    <polygon points="122,95 96,175 148,175" fill="#262e2b"/>
+                    <polygon points="368,90 342,175 394,175" fill="#171c1a"/>
+                    
+                    <line x1="185" y1="38" x2="185" y2="60" stroke="#1b211f" stroke-width="2"/>
+                    <line x1="305" y1="36" x2="305" y2="60" stroke="#1b211f" stroke-width="2"/>
+                    <line x1="122" y1="78" x2="122" y2="100" stroke="#1b211f" stroke-width="2"/>
+                    <line x1="368" y1="74" x2="368" y2="96" stroke="#1b211f" stroke-width="2"/>
+
+                    <rect x="145" y="132" width="200" height="165" fill="url(#towerStone)"/>
+                    <rect x="265" y="132" width="80" height="165" fill="url(#towerShadow)" opacity="0.65"/>
+
+                    <rect x="98" y="175" width="48" height="125" fill="#2b3330"/>
+                    <rect x="344" y="175" width="48" height="125" fill="#191e1c"/>
+
+                    <g filter="url(#glowAmber)" class="animate-torch">
+                        <rect x="276" y="152" width="8" height="14" rx="2" fill="#f59e0b"/>
+                        <rect x="292" y="152" width="8" height="14" rx="2" fill="#fbbf24"/>
+                        <rect x="276" y="174" width="8" height="13" rx="2" fill="#ea580c"/>
+                        <rect x="292" y="174" width="8" height="13" rx="2" fill="#f59e0b"/>
+                        <rect x="358" y="192" width="7" height="13" rx="2" fill="#f59e0b"/>
+                    </g>
+
+                    <path d="M172 238 L172 212 Q182 200 192 212 L192 238 Z" fill="#111513"/>
+                    <path d="M235 238 L235 212 Q245 200 255 212 L255 238 Z" fill="#111513"/>
+
+                    <rect x="85" y="294" width="320" height="24" fill="#232a27"/>
+                    <path d="M85 294 h16 v-10 h16 v10 h16 v-10 h16 v10 h16 v-10 h16 v10 h16 v-10 h16 v10 h16 v-10 h16 v10 h16 v-10 h16 v10 h16 v-10 h16 v10 h16 v-10 h16 v10 h16 v-10 h16 v10 h16 v-10 h16 v10 h16 v-10 h16 v10" fill="#2c3431"/>
+
+                    <polygon points="82,318 408,318 442,790 48,790" fill="url(#towerStone)"/>
+                    <polygon points="275,318 408,318 442,790 275,790" fill="url(#towerShadow)" opacity="0.62"/>
+
+                    <path d="M132 318 L208 318 L208 425 Q170 452 132 425 Z" fill="#313935" stroke="#1b211f" stroke-width="2"/>
+                    <path d="M162 385 L162 355 Q170 345 178 355 L178 385 Z" fill="#121614"/>
+
+                    <path d="M150 535 L150 495 Q166 478 182 495 L182 535 Z" fill="#151a18" stroke="#232a27" stroke-width="2"/>
+                </g>
+
+                <g class="animate-mist">
+                    <ellipse cx="780" cy="740" rx="540" ry="130" fill="#9ca89e" opacity="0.32" filter="url(#softBlur)"/>
+                    <ellipse cx="620" cy="790" rx="460" ry="100" fill="#cfd6cf" opacity="0.24" filter="url(#softBlur)"/>
+                </g>
+
+                <path d="M0,1000 L0,730 Q90,710 150,750 Q230,735 310,790 Q410,805 510,845 L510,1000 Z" fill="#131914"/>
+                <path d="M1600,1000 L1600,700 Q1490,695 1410,745 Q1310,740 1220,795 Q1110,810 1010,850 L1010,1000 Z" fill="#101511"/>
+
+                <path d="M620,1000 L745,815 L815,815 L960,1000 Z" fill="url(#pathGrad)"/>
+
+                <g transform="translate(778, 795)">
+                    <ellipse cx="0" cy="34" rx="14" ry="4" fill="#090c0a" opacity="0.7"/>
+                    <line x1="-4" y1="20" x2="-5" y2="33" stroke="#141815" stroke-width="3" stroke-linecap="round"/>
+                    <line x1="4" y1="20" x2="5" y2="33" stroke="#141815" stroke-width="3" stroke-linecap="round"/>
+                    <path d="M-4,-6 L4,-6 L15,24 L6,22 L0,25 L-6,22 L-15,24 Z" fill="#1b241c" stroke="#0e130f" stroke-width="1"/>
+                    <circle cx="0" cy="-10" r="4.5" fill="#161d17"/>
+                </g>
+
+                <rect x="0" y="650" width="1600" height="350" fill="url(#mistGrad)"/>
+            </svg>
+
+            <div class="absolute inset-0 bg-gradient-to-b from-black/45 via-black/35 to-black/75"></div>
+        </div>
+
+        <!-- Hovedmeny-innhold oppå omslagsbildet -->
+        <div class="relative z-10 max-w-4xl w-full flex flex-col items-center my-auto">
+            
+            <div class="w-full glass-panel rounded-3xl p-5 sm:p-8 border border-[#c7d1a8]/25 shadow-[0_20px_70px_rgba(0,0,0,0.85)]">
+                <div class="flex flex-col md:flex-row items-center gap-6 mb-6">
+                    
+                    <div class="relative w-40 sm:w-48 aspect-[2/3] rounded-2xl overflow-hidden border-2 border-[#c7d1a8]/40 shadow-[0_10px_35px_rgba(0,0,0,0.85)] shrink-0 bg-[#1a201e] group">
+                        <img id="coverThumbImg" alt="Balance of Vanum Cover" class="hidden w-full h-full object-cover" />
+                        <svg id="coverThumbSvg" viewBox="0 0 400 600" class="w-full h-full">
+                            <defs>
+                                <linearGradient id="thumbSky" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#232927"/>
+                                    <stop offset="60%" stop-color="#333b37"/>
+                                    <stop offset="100%" stop-color="#141816"/>
+                                </linearGradient>
+                                <radialGradient id="thumbGlow" cx="15%" cy="62%" r="55%">
+                                    <stop offset="0%" stop-color="#b5c98a" stop-opacity="0.55"/>
+                                    <stop offset="100%" stop-color="#232927" stop-opacity="0"/>
+                                </radialGradient>
+                            </defs>
+                            <rect width="400" height="600" fill="url(#thumbSky)"/>
+                            <rect width="400" height="600" fill="url(#thumbGlow)"/>
+                            <g transform="translate(82, 20)">
+                                <polygon points="118,0 106,52 130,52" fill="#1c2220"/>
+                                <polygon points="82,32 64,82 100,82" fill="#252c29"/>
+                                <polygon points="154,30 136,82 172,82" fill="#191f1d"/>
+                                <rect x="62" y="80" width="112" height="100" fill="#323a36"/>
+                                <rect x="130" y="80" width="44" height="100" fill="#1e2421"/>
+                                <rect x="136" y="92" width="5" height="9" fill="#f59e0b"/>
+                                <rect x="145" y="92" width="5" height="9" fill="#fbbf24"/>
+                                <rect x="136" y="106" width="5" height="8" fill="#ea580c"/>
+                                <rect x="32" y="178" width="172" height="14" fill="#232a27"/>
+                                <polygon points="30,192 206,192 224,480 12,480" fill="#363f3b"/>
+                                <polygon points="135,192 206,192 224,480 135,480" fill="#1f2522"/>
+                                <path d="M62 192 L106 192 L106 258 Q84 274 62 258 Z" fill="#2b3330"/>
+                            </g>
+                            <ellipse cx="200" cy="465" rx="220" ry="65" fill="#b8c2ba" opacity="0.35"/>
+                            <path d="M0,600 L0,470 Q70,460 135,500 L135,600 Z" fill="#141a15"/>
+                            <path d="M400,600 L400,455 Q320,455 255,500 L255,600 Z" fill="#111612"/>
+                            <path d="M135,600 L182,495 L218,495 L265,600 Z" fill="#3b4432"/>
+                            <g transform="translate(200, 485)">
+                                <path d="M-3,-4 L3,-4 L10,16 L0,18 L-10,16 Z" fill="#182019"/>
+                                <circle cx="0" cy="-7" r="3.2" fill="#141a15"/>
+                            </g>
+                            <rect x="0" y="505" width="400" height="95" fill="rgba(10,13,11,0.72)"/>
+                            <text x="200" y="542" text-anchor="middle" fill="#d8e0b8" font-family="Cinzel, serif" font-size="22" font-weight="700" letter-spacing="2">BALANCE OF VANUM</text>
+                            <text x="200" y="566" text-anchor="middle" fill="#b4be96" font-family="Cinzel, serif" font-size="13" letter-spacing="1">Henrik M. Gustavsen</text>
+                        </svg>
+
+                        <label title="Last opp eget omslagsbilde" class="absolute bottom-2 right-2 p-1.5 rounded-lg bg-black/75 hover:bg-black text-[#d8e0b8] border border-[#c7d1a8]/40 cursor-pointer transition opacity-85 hover:opacity-100">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                            <input type="file" id="coverUploadInput" accept="image/*" class="hidden" />
+                        </label>
+                    </div>
+
+                    <div class="text-center md:text-left flex-1">
+                        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#c7d1a8]/10 border border-[#c7d1a8]/30 text-[#d8e0b8] text-xs font-semibold tracking-widest uppercase mb-2">
+                            <span>🏰 Offisielt Spillunivers</span>
+                        </div>
+                        <h1 class="font-fantasy text-3xl sm:text-5xl font-bold tracking-wider text-[#e2e8c0] drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]">
+                            BALANCE OF VANUM
+                        </h1>
+                        <div class="font-fantasy text-sm sm:text-base text-[#b9c49b] tracking-widest mt-1">
+                            Basert på verket av Henrik M. Gustavsen
+                        </div>
+                        <p class="text-slate-300 text-xs sm:text-sm mt-3 leading-relaxed">
+                            Tre inn i de tåkefylte skogene og eldgamle slottsruinene rundt Vanum-citadellet. Karakteren står i ro til du gir kommandoer, og staven følger musepekeren for presis magisk kamp mot trollene.
+                        </p>
+
+                        <div class="mt-5 flex flex-wrap items-center justify-center md:justify-start gap-3">
+                            <button id="startBtn" class="px-9 py-3.5 rounded-2xl font-fantasy font-bold text-base sm:text-lg tracking-wider uppercase text-slate-950 bg-gradient-to-r from-[#d8e0b8] via-amber-300 to-cyan-300 hover:brightness-110 shadow-[0_0_30px_rgba(216,224,184,0.4)] transition transform hover:scale-105 active:scale-95 cursor-pointer">
+                                Start Eventyret
+                            </button>
+                            <label for="coverUploadInput" class="px-4 py-3.5 rounded-2xl text-xs font-semibold text-[#d8e0b8] bg-slate-900/80 hover:bg-slate-800 border border-[#c7d1a8]/30 cursor-pointer transition">
+                                🖼️ Velg omslagsbilde
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-4 border-t border-slate-700/60">
+                    <div class="p-2.5 rounded-xl bg-slate-900/75 border border-orange-500/30 flex items-start gap-2.5">
+                        <div class="w-9 h-9 rounded-lg bg-orange-500/20 border border-orange-400/40 flex items-center justify-center text-lg shrink-0">🔥</div>
+                        <div>
+                            <div class="font-bold text-xs sm:text-sm text-orange-300">Ildkule <span class="text-[11px] text-slate-400 font-normal">[1 / Q]</span></div>
+                            <p class="text-[11px] text-slate-300 mt-0.5">Eksplosiv ildkule mot musepekeren med stor områdeskade.</p>
+                        </div>
+                    </div>
+                    <div class="p-2.5 rounded-xl bg-slate-900/75 border border-amber-600/30 flex items-start gap-2.5">
+                        <div class="w-9 h-9 rounded-lg bg-amber-700/25 border border-amber-500/40 flex items-center justify-center text-lg shrink-0">🪨</div>
+                        <div>
+                            <div class="font-bold text-xs sm:text-sm text-amber-300">Jordvegg <span class="text-[11px] text-slate-400 font-normal">[2 / E]</span></div>
+                            <p class="text-[11px] text-slate-300 mt-0.5">Reiser en steinmur ved musen som blokkerer og bedøver troll.</p>
+                        </div>
+                    </div>
+                    <div class="p-2.5 rounded-xl bg-slate-900/75 border border-cyan-500/30 flex items-start gap-2.5">
+                        <div class="w-9 h-9 rounded-lg bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-lg shrink-0">💧</div>
+                        <div>
+                            <div class="font-bold text-xs sm:text-sm text-cyan-300">Vannhelbredelse <span class="text-[11px] text-slate-400 font-normal">[3 / R]</span></div>
+                            <p class="text-[11px] text-slate-300 mt-0.5">Helbredende vann-aura som gjenoppretter livskraft.</p>
+                        </div>
+                    </div>
+                    <div class="p-2.5 rounded-xl bg-slate-900/75 border border-teal-400/30 flex items-start gap-2.5">
+                        <div class="w-9 h-9 rounded-lg bg-teal-400/20 border border-teal-300/40 flex items-center justify-center text-lg shrink-0">🌪️</div>
+                        <div>
+                            <div class="font-bold text-xs sm:text-sm text-teal-200">Luft-dash <span class="text-[11px] text-slate-400 font-normal">[4 / Space]</span></div>
+                            <p class="text-[11px] text-slate-300 mt-0.5">Lynraskt vindstøt mot musen med usårbarhet.</p>
+                        </div>
+                    </div>
+                    <div class="p-2.5 rounded-xl bg-slate-900/75 border border-yellow-300/30 flex items-start gap-2.5">
+                        <div class="w-9 h-9 rounded-lg bg-yellow-400/20 border border-yellow-300/40 flex items-center justify-center text-lg shrink-0">✨</div>
+                        <div>
+                            <div class="font-bold text-xs sm:text-sm text-yellow-200">Lys-kloner <span class="text-[11px] text-slate-400 font-normal">[5 / F]</span></div>
+                            <p class="text-[11px] text-slate-300 mt-0.5">Skaper 3 lysende lokkeduer som avleder trollene.</p>
+                        </div>
+                    </div>
+                    <div class="p-2.5 rounded-xl bg-slate-900/75 border border-purple-500/30 flex items-start gap-2.5">
+                        <div class="w-9 h-9 rounded-lg bg-purple-500/20 border border-purple-400/40 flex items-center justify-center text-lg shrink-0">🌑</div>
+                        <div>
+                            <div class="font-bold text-xs sm:text-sm text-purple-300">Mørk Stealth <span class="text-[11px] text-slate-400 font-normal">[6 / Shift]</span></div>
+                            <p class="text-[11px] text-slate-300 mt-0.5">Midlertidig usynlighet og 2.5x skade på neste angrep.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over / Victory Modal -->
+    <div id="gameOverScreen" class="hidden fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+        <div class="glass-panel rounded-3xl p-6 sm:p-10 max-w-md w-full text-center border border-rose-500/40 shadow-[0_0_50px_rgba(244,63,94,0.3)]">
+            <div id="endGameIcon" class="text-5xl mb-3">💀</div>
+            <h2 id="endGameTitle" class="font-fantasy text-2xl sm:text-3xl font-bold text-rose-400 tracking-wider">Vandreren falt</h2>
+            <p id="endGameSubtitle" class="text-slate-300 text-sm mt-2">Trollene overmannet Vanum-helligdommen.</p>
+            
+            <div class="my-6 py-4 rounded-2xl bg-slate-900/90 border border-slate-700/60 flex justify-around">
+                <div>
+                    <div class="text-[10px] uppercase tracking-widest text-slate-400">Nådd Bølge</div>
+                    <div id="endWave" class="font-fantasy text-xl font-bold text-amber-400">1</div>
+                </div>
+                <div class="w-px bg-slate-700"></div>
+                <div>
+                    <div class="text-[10px] uppercase tracking-widest text-slate-400">Kvernede Troll</div>
+                    <div id="endKills" class="font-fantasy text-xl font-bold text-slate-100">0</div>
+                </div>
+                <div class="w-px bg-slate-700"></div>
+                <div>
+                    <div class="text-[10px] uppercase tracking-widest text-slate-400">Poengsum</div>
+                    <div id="endScore" class="font-fantasy text-xl font-bold text-cyan-300">0</div>
+                </div>
+            </div>
+
+            <button id="restartBtn" class="w-full py-3.5 rounded-2xl font-fantasy font-bold tracking-wider uppercase text-slate-950 bg-gradient-to-r from-amber-400 via-cyan-400 to-emerald-400 hover:brightness-110 shadow-lg transition cursor-pointer">
+                Spill Igjen
+            </button>
+        </div>
+    </div>
+
+    <!-- Spillogikk med HTML5 Canvas -->
+    <script>
+        // --- LYDSYSTEM (Web Audio API) ---
+        let audioCtx = null;
+        let isMuted = false;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playSound(type) {
+            if (isMuted || !audioCtx) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                const now = audioCtx.currentTime;
+
+                if (type === 'shoot') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(520, now);
+                    osc.frequency.exponentialRampToValueAtTime(120, now + 0.12);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.12);
+                    osc.start(now);
+                    osc.stop(now + 0.12);
+                } else if (type === 'hit') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(180, now);
+                    osc.frequency.linearRampToValueAtTime(60, now + 0.15);
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+                    osc.start(now);
+                    osc.stop(now + 0.15);
+                } else if (type === 'fireball') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(300, now);
+                    osc.frequency.exponentialRampToValueAtTime(80, now + 0.35);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.35);
+                    osc.start(now);
+                    osc.stop(now + 0.35);
+                } else if (type === 'heal') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(300, now);
+                    osc.frequency.exponentialRampToValueAtTime(880, now + 0.4);
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.4);
+                    osc.start(now);
+                    osc.stop(now + 0.4);
+                } else if (type === 'dash') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(150, now);
+                    osc.frequency.exponentialRampToValueAtTime(450, now + 0.2);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+                    osc.start(now);
+                    osc.stop(now + 0.2);
+                }
+            } catch (e) {}
+        }
+
+        // --- SPILLVARIABLER OG KONSTANTER ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const minimapCanvas = document.getElementById('minimapCanvas');
+        const minimapCtx = minimapCanvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        const WORLD_WIDTH = 3000;
+        const WORLD_HEIGHT = 3000;
+
+        let gameState = 'MENU'; // 'MENU', 'PLAYING', 'GAMEOVER'
+        let gameTime = 0;
+        let score = 0;
+        let kills = 0;
+        let wave = 1;
+
+        const camera = { x: 0, y: 0 };
+        const mouse = { x: 0, y: 0, worldX: 0, worldY: 0, down: false };
+
+        const player = {
+            x: WORLD_WIDTH / 2,
+            y: WORLD_HEIGHT / 2,
+            radius: 18,
+            speed: 3.8,
+            hp: 100,
+            maxHp: 100,
+            mana: 100,
+            maxMana: 100,
+            angle: 0,
+            isStealth: false,
+            stealthTimer: 0,
+            isInvulnerable: false,
+            invulnTimer: 0,
+            damageMultiplier: 1.0,
+            lastShotTime: 0
+        };
+
+        const keys = {};
+        window.addEventListener('keydown', e => {
+            keys[e.key.toLowerCase()] = true;
+            keys[e.code] = true;
+            if (gameState === 'PLAYING') {
+                if (e.key === '1' || e.key.toLowerCase() === 'q') useSkill(0);
+                if (e.key === '2' || e.key.toLowerCase() === 'e') useSkill(1);
+                if (e.key === '3' || e.key.toLowerCase() === 'r') useSkill(2);
+                if (e.key === '4' || e.code === 'Space') useSkill(3);
+                if (e.key === '5' || e.key.toLowerCase() === 'f') useSkill(4);
+                if (e.key === '6' || e.key.toLowerCase() === 'shift') useSkill(5);
+            }
+        });
+        window.addEventListener('keyup', e => {
+            keys[e.key.toLowerCase()] = false;
+            keys[e.code] = false;
+        });
+
+        window.addEventListener('mousemove', e => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+            mouse.worldX = camera.x + mouse.x;
+            mouse.worldY = camera.y + mouse.y;
+        });
+
+        window.addEventListener('mousedown', e => {
+            if (e.button === 0) {
+                mouse.down = true;
+                initAudio();
+                if (gameState === 'PLAYING') {
+                    shootVanumBolt();
+                }
+            }
+        });
+        window.addEventListener('mouseup', e => {
+            if (e.button === 0) mouse.down = false;
+        });
+
+        // --- ELEMENTKREFTER ---
+        const skills = [
+            { id: 'fire', name: 'Ildkule', icon: '🔥', key: '1 / Q', cost: 25, cd: 1.2, lastUsed: 0, type: 'chaos' },
+            { id: 'earth', name: 'Jordvegg', icon: '🪨', key: '2 / E', cost: 30, cd: 4.0, lastUsed: 0, type: 'chaos' },
+            { id: 'water', name: 'Vannhelbredelse', icon: '💧', key: '3 / R', cost: 35, cd: 6.0, lastUsed: 0, type: 'order' },
+            { id: 'air', name: 'Luft-dash', icon: '🌪️', key: '4 / Space', cost: 20, cd: 2.5, lastUsed: 0, type: 'order' },
+            { id: 'light', name: 'Lys-kloner', icon: '✨', key: '5 / F', cost: 40, cd: 8.0, lastUsed: 0, type: 'order' },
+            { id: 'dark', name: 'Mørk Stealth', icon: '🌑', key: '6 / Shift', cost: 30, cd: 7.0, lastUsed: 0, type: 'chaos' }
+        ];
+
+        let lastPowerType = null;
+        let balanceValue = 50; // 0 (Orden) til 100 (Kaos), 50 er Harmoni
+
+        function renderSkillBar() {
+            const container = document.getElementById('skillBar');
+            container.innerHTML = '';
+            skills.forEach((s, idx) => {
+                const btn = document.createElement('button');
+                btn.className = `skill-btn relative flex flex-col items-center justify-center w-14 sm:w-16 h-14 sm:h-16 rounded-2xl bg-slate-900/90 border border-slate-700/80 text-white shadow-lg cursor-pointer overflow-hidden`;
+                btn.innerHTML = `
+                    <span class="text-xl sm:text-2xl">${s.icon}</span>
+                    <span class="text-[9px] text-slate-300 font-semibold mt-0.5">${s.key}</span>
+                    <div id="cdOverlay_${idx}" class="absolute inset-0 bg-slate-950/80 flex items-center justify-center text-xs font-bold text-amber-300 hidden"></div>
+                `;
+                btn.onclick = () => { initAudio(); useSkill(idx); };
+                container.appendChild(btn);
+            });
+        }
+
+        function updateSkillBarCooldowns() {
+            const now = Date.now() / 1000;
+            skills.forEach((s, idx) => {
+                const overlay = document.getElementById(`cdOverlay_${idx}`);
+                if (!overlay) return;
+                const elapsed = now - s.lastUsed;
+                if (elapsed < s.cd) {
+                    const rem = (s.cd - elapsed).toFixed(1);
+                    overlay.classList.remove('hidden');
+                    overlay.textContent = rem + 's';
+                } else {
+                    overlay.classList.add('hidden');
+                }
+            });
+        }
+
+        function useSkill(idx) {
+            if (gameState !== 'PLAYING') return;
+            const s = skills[idx];
+            const now = Date.now() / 1000;
+            if (now - s.lastUsed < s.cd) return;
+            if (player.mana < s.cost) return;
+
+            player.mana -= s.cost;
+            s.lastUsed = now;
+
+            // Oppdater balansemåler
+            if (s.type === 'order') balanceValue = Math.max(0, balanceValue - 12);
+            else balanceValue = Math.min(100, balanceValue + 12);
+
+            // Sjekk Harmoni (35% - 65%)
+            const harmonyBox = document.getElementById('balanceContainer');
+            const statusText = document.getElementById('balanceStatusText');
+            const indicator = document.getElementById('balanceIndicator');
+            indicator.style.left = balanceValue + '%';
+
+            if (balanceValue >= 35 && balanceValue <= 65) {
+                harmonyBox.classList.add('harmony-active');
+                statusText.textContent = 'VANUM HARMONI (+35% SKADE)';
+                player.damageMultiplier = 1.35;
+            } else {
+                harmonyBox.classList.remove('harmony-active');
+                statusText.textContent = balanceValue < 35 ? 'ORDEN DOMINERER' : 'KAOS DOMINERER';
+                player.damageMultiplier = 1.0;
+            }
+
+            // Utfør krefter
+            if (s.id === 'fire') {
+                playSound('fireball');
+                projectiles.push({
+                    x: player.x, y: player.y,
+                    vx: Math.cos(player.angle) * 10,
+                    vy: Math.sin(player.angle) * 10,
+                    radius: 12, damage: 55, isFireball: true, life: 70
+                });
+            } else if (s.id === 'earth') {
+                playSound('hit');
+                const wallDist = 60;
+                const wx = player.x + Math.cos(player.angle) * wallDist;
+                const wy = player.y + Math.sin(player.angle) * wallDist;
+                earthWalls.push({ x: wx, y: wy, width: 80, height: 18, angle: player.angle + Math.PI/2, hp: 120 });
+                // Stun troll i nærheten
+                trolls.forEach(t => {
+                    const dist = Math.hypot(t.x - wx, t.y - wy);
+                    if (dist < 90) {
+                        t.stunTimer = 120;
+                    }
+                });
+            } else if (s.id === 'water') {
+                playSound('heal');
+                player.hp = Math.min(player.maxHp, player.hp + 35);
+                floatingTexts.push({ x: player.x, y: player.y - 20, text: '+35 LIV', color: '#38bdf8', life: 50 });
+            } else if (s.id === 'air') {
+                playSound('dash');
+                const dashDist = 140;
+                player.x += Math.cos(player.angle) * dashDist;
+                player.y += Math.sin(player.angle) * dashDist;
+                player.x = Math.max(30, Math.min(WORLD_WIDTH - 30, player.x));
+                player.y = Math.max(30, Math.min(WORLD_HEIGHT - 30, player.y));
+                player.isInvulnerable = true;
+                player.invulnTimer = 45;
+            } else if (s.id === 'light') {
+                playSound('heal');
+                for (let i = 0; i < 3; i++) {
+                    const a = player.angle + (i - 1) * 0.6;
+                    clones.push({ x: player.x + Math.cos(a)*40, y: player.y + Math.sin(a)*40, life: 180 });
+                }
+            } else if (s.id === 'dark') {
+                playSound('dash');
+                player.isStealth = true;
+                player.stealthTimer = 240;
+                player.damageMultiplier = 2.5;
+                floatingTexts.push({ x: player.x, y: player.y - 20, text: 'MØRK STEALTH (2.5x)', color: '#a855f7', life: 60 });
+            }
+        }
+
+        // --- SPILLEMENTER & ENTITETER ---
+        let trolls = [];
+        let projectiles = [];
+        let earthWalls = [];
+        let clones = [];
+        let floatingTexts = [];
+        let particles = [];
+
+        // Verdensmiljø (Trær, slottsruiner, steiner)
+        let worldObjects = [];
+
+        function generateWorld() {
+            worldObjects = [];
+            // Generer slottruiner i midten
+            for (let i = 0; i < 8; i++) {
+                const angle = (i / 8) * Math.PI * 2;
+                const dist = 220 + Math.random() * 80;
+                worldObjects.push({
+                    type: 'ruin',
+                    x: WORLD_WIDTH / 2 + Math.cos(angle) * dist,
+                    y: WORLD_HEIGHT / 2 + Math.sin(angle) * dist,
+                    width: 50, height: 50
+                });
+            }
+            // Generer skogstrær og kampesteiner over hele 3000x3000 kartet
+            for (let i = 0; i < 180; i++) {
+                const x = 80 + Math.random() * (WORLD_WIDTH - 160);
+                const y = 80 + Math.random() * (WORLD_HEIGHT - 160);
+                // Unngå midten
+                if (Math.hypot(x - WORLD_WIDTH/2, y - WORLD_HEIGHT/2) < 280) continue;
+
+                const isRock = Math.random() < 0.25;
+                worldObjects.push({
+                    type: isRock ? 'rock' : 'tree',
+                    x: x,
+                    y: y,
+                    radius: isRock ? 22 + Math.random()*18 : 35 + Math.random()*25
+                });
+            }
+        }
+
+        // --- SPILLSTART OG BØLGESYSTEM ---
+        function startGame() {
+            initAudio();
+            document.getElementById('startScreen').classList.add('hidden');
+            document.getElementById('gameOverScreen').classList.add('hidden');
+            document.getElementById('hudTop').classList.remove('hidden');
+            document.getElementById('hudBottom').classList.remove('hidden');
+
+            player.x = WORLD_WIDTH / 2;
+            player.y = WORLD_HEIGHT / 2;
+            player.hp = player.maxHp;
+            player.mana = player.maxMana;
+            score = 0;
+            kills = 0;
+            wave = 1;
+            trolls = [];
+            projectiles = [];
+            earthWalls = [];
+            clones = [];
+            floatingTexts = [];
+            particles = [];
+
+            generateWorld();
+            renderSkillBar();
+            spawnWave();
+            gameState = 'PLAYING';
+        }
+
+        function spawnWave() {
+            showWaveBanner(`Bølge ${wave}: Trollhorden angriper!`);
+            const count = 3 + wave * 3;
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 700 + Math.random() * 500;
+                const isBoss = wave % 3 === 0 && i === 0;
+                trolls.push({
+                    x: player.x + Math.cos(angle) * dist,
+                    y: player.y + Math.sin(angle) * dist,
+                    radius: isBoss ? 42 : 22,
+                    hp: isBoss ? 250 + wave * 50 : 50 + wave * 15,
+                    maxHp: isBoss ? 250 + wave * 50 : 50 + wave * 15,
+                    speed: isBoss ? 1.4 : 2.1 + Math.random() * 0.6,
+                    damage: isBoss ? 25 : 10,
+                    isBoss: isBoss,
+                    stunTimer: 0,
+                    attackCooldown: 0
+                });
+            }
+        }
+
+        function showWaveBanner(text) {
+            const banner = document.getElementById('waveBanner');
+            const bannerText = document.getElementById('waveBannerText');
+            bannerText.textContent = text;
+            banner.classList.remove('opacity-0', '-translate-y-4');
+            setTimeout(() => {
+                banner.classList.add('opacity-0', '-translate-y-4');
+            }, 3500);
+        }
+
+        function shootVanumBolt() {
+            const now = Date.now();
+            if (now - player.lastShotTime < 180) return;
+            player.lastShotTime = now;
+
+            playSound('shoot');
+            const speed = 12;
+            projectiles.push({
+                x: player.x,
+                y: player.y,
+                vx: Math.cos(player.angle) * speed,
+                vy: Math.sin(player.angle) * speed,
+                radius: 6,
+                damage: 22 * player.damageMultiplier,
+                isFireball: false,
+                life: 50
+            });
+
+            if (player.isStealth) {
+                player.isStealth = false;
+                player.damageMultiplier = 1.0;
+            }
+        }
+
+        // --- HOVEDSPILLTEKST (GAME LOOP) ---
+        function update() {
+            if (gameState !== 'PLAYING') return;
+
+            gameTime++;
+
+            // Regenerer litt Vanum-energi over tid
+            if (player.mana < player.maxMana) {
+                player.mana = Math.min(player.maxMana, player.mana + 0.15);
+            }
+
+            // Sjekk om spilleren beveger seg med WASD / piltaster ELLER musen dras
+            let moveX = 0;
+            let moveY = 0;
+            if (keys['w'] || keys['arrowup']) moveY -= 1;
+            if (keys['s'] || keys['arrowdown']) moveY += 1;
+            if (keys['a'] || keys['arrowleft']) moveX -= 1;
+            if (keys['d'] || keys['arrowright']) moveX += 1;
+
+            if (moveX !== 0 || moveY !== 0) {
+                const len = Math.hypot(moveX, moveY);
+                player.x += (moveX / len) * player.speed;
+                player.y += (moveY / len) * player.speed;
+            } else if (mouse.down) {
+                // Karakteren følger etter musen når man holder nede venstreklikk
+                const distToMouse = Math.hypot(mouse.worldX - player.x, mouse.worldY - player.y);
+                if (distToMouse > 5) {
+                    const angleToMouse = Math.atan2(mouse.worldY - player.y, mouse.worldX - player.x);
+                    player.x += Math.cos(angleToMouse) * player.speed;
+                    player.y += Math.sin(angleToMouse) * player.speed;
+                }
+            }
+
+            // Begrens til kartet
+            player.x = Math.max(30, Math.min(WORLD_WIDTH - 30, player.x));
+            player.y = Math.max(30, Math.min(WORLD_HEIGHT - 30, player.y));
+
+            // Staven peker alltid mot musepekeren
+            player.angle = Math.atan2(mouse.worldY - player.y, mouse.worldX - player.x);
+
+            // Mykt kamera som følger spilleren
+            camera.x += (player.x - canvas.width / 2 - camera.x) * 0.1;
+            camera.y += (player.y - canvas.height / 2 - camera.y) * 0.1;
+            camera.x = Math.max(0, Math.min(WORLD_WIDTH - canvas.width, camera.x));
+            camera.y = Math.max(0, Math.min(WORLD_HEIGHT - canvas.height, camera.y));
+
+            // Timer for usårbarhet & stealth
+            if (player.isInvulnerable) {
+                player.invulnTimer--;
+                if (player.invulnTimer <= 0) player.isInvulnerable = false;
+            }
+            if (player.isStealth) {
+                player.stealthTimer--;
+                if (player.stealthTimer <= 0) {
+                    player.isStealth = false;
+                    player.damageMultiplier = 1.0;
+                }
+            }
+
+            // Oppdater prosjektiler
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                const p = projectiles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life--;
+
+                // Kollidér med troll
+                let hit = false;
+                for (let t of trolls) {
+                    if (Math.hypot(t.x - p.x, t.y - p.y) < t.radius + p.radius) {
+                        hit = true;
+                        t.hp -= p.damage;
+                        playSound('hit');
+                        floatingTexts.push({ x: t.x, y: t.y - 15, text: Math.round(p.damage), color: p.isFireball ? '#f97316' : '#38bdf8', life: 35 });
+
+                        if (p.isFireball) {
+                            // AoE skade
+                            trolls.forEach(ot => {
+                                if (Math.hypot(ot.x - p.x, ot.y - p.y) < 100) {
+                                    ot.hp -= 30;
+                                }
+                            });
+                        }
+                        break;
+                    }
+                }
+
+                if (hit || p.life <= 0) {
+                    projectiles.splice(i, 1);
+                }
+            }
+
+            // Oppdater kloner
+            for (let i = clones.length - 1; i >= 0; i--) {
+                clones[i].life--;
+                if (clones[i].life <= 0) clones.splice(i, 1);
+            }
+
+            // Oppdater troll
+            for (let i = trolls.length - 1; i >= 0; i--) {
+                const t = trolls[i];
+                if (t.stunTimer > 0) {
+                    t.stunTimer--;
+                    continue;
+                }
+
+                // Finn nærmeste mål (spiller eller klon)
+                let targetX = player.x;
+                let targetY = player.y;
+                if (!player.isStealth && clones.length > 0) {
+                    let closestClone = clones[0];
+                    let minDist = Math.hypot(clones[0].x - t.x, clones[0].y - t.y);
+                    for (let c of clones) {
+                        const d = Math.hypot(c.x - t.x, c.y - t.y);
+                        if (d < minDist) {
+                            minDist = d;
+                            closestClone = c;
+                        }
+                    }
+                    targetX = closestClone.x;
+                    targetY = closestClone.y;
+                }
+
+                const angle = Math.atan2(targetY - t.y, targetX - t.x);
+                t.x += Math.cos(angle) * t.speed;
+                t.y += Math.sin(angle) * t.speed;
+
+                // Angrip spiller
+                if (!player.isStealth && Math.hypot(player.x - t.x, player.y - t.y) < t.radius + player.radius) {
+                    if (!player.isInvulnerable) {
+                        player.hp -= t.isBoss ? 1.5 : 0.8;
+                        if (player.hp <= 0) {
+                            triggerGameOver();
+                        }
+                    }
+                }
+
+                // Sjekk om død
+                if (t.hp <= 0) {
+                    kills++;
+                    score += t.isBoss ? 500 : 100;
+                    trolls.splice(i, 1);
+                    if (trolls.length === 0) {
+                        wave++;
+                        setTimeout(spawnWave, 1000);
+                    }
+                }
+            }
+
+            // Oppdater flytende tekster
+            for (let i = floatingTexts.length - 1; i >= 0; i--) {
+                floatingTexts[i].y -= 0.6;
+                floatingTexts[i].life--;
+                if (floatingTexts[i].life <= 0) floatingTexts.splice(i, 1);
+            }
+
+            // Oppdater HUD
+            document.getElementById('hpText').textContent = `${Math.max(0, Math.round(player.hp))} / ${player.maxHp}`;
+            document.getElementById('hpBar').style.width = `${(player.hp / player.maxHp) * 100}%`;
+            document.getElementById('manaText').textContent = `${Math.round(player.mana)} / ${player.maxMana}`;
+            document.getElementById('manaBar').style.width = `${(player.mana / player.maxMana) * 100}%`;
+            document.getElementById('waveText').textContent = wave;
+            document.getElementById('killsText').textContent = kills;
+            document.getElementById('scoreText').textContent = score;
+
+            updateSkillBarCooldowns();
+        }
+
+        // --- TEGNESYSTEM (RENDER) ---
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (gameState !== 'PLAYING') return;
+
+            ctx.save();
+            ctx.translate(-camera.x, -camera.y);
+
+            // 1. Tegn bakken (Zelda / SNES tile-stil grønn gressmatteslette)
+            ctx.fillStyle = '#223824';
+            ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+
+            // Gressdetaljer og mønster
+            ctx.fillStyle = '#29452b';
+            for (let x = 0; x < WORLD_WIDTH; x += 160) {
+                for (let y = 0; y < WORLD_HEIGHT; y += 160) {
+                    ctx.beginPath();
+                    ctx.arc(x + 40, y + 40, 60, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            // Slottsruiner i midten
+            ctx.fillStyle = '#3a443e';
+            ctx.strokeStyle = '#1e2522';
+            ctx.lineWidth = 3;
+            worldObjects.forEach(obj => {
+                if (obj.type === 'ruin') {
+                    ctx.fillRect(obj.x - obj.width/2, obj.y - obj.height/2, obj.width, obj.height);
+                    ctx.strokeRect(obj.x - obj.width/2, obj.y - obj.height/2, obj.width, obj.height);
+                    // Magisk runestein i midten
+                    ctx.fillStyle = '#5c6e62';
+                    ctx.fillRect(obj.x - 12, obj.y - 12, 24, 24);
+                } else if (obj.type === 'rock') {
+                    ctx.fillStyle = '#4a544e';
+                    ctx.beginPath();
+                    ctx.arc(obj.x, obj.y, obj.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                }
+            });
+
+            // Jordvegger
+            earthWalls.forEach(w => {
+                ctx.save();
+                ctx.translate(w.x, w.y);
+                ctx.rotate(w.angle);
+                ctx.fillStyle = '#785438';
+                ctx.fillRect(-w.width/2, -w.height/2, w.width, w.height);
+                ctx.strokeStyle = '#4a321f';
+                ctx.strokeRect(-w.width/2, -w.height/2, w.width, w.height);
+                ctx.restore();
+            });
+
+            // 2. Tegn Troll
+            trolls.forEach(t => {
+                ctx.save();
+                ctx.translate(t.x, t.y);
+                // Troll kropp
+                ctx.fillStyle = t.isBoss ? '#274029' : '#365338';
+                ctx.beginPath();
+                ctx.arc(0, 0, t.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = '#1b2e1d';
+                ctx.stroke();
+
+                // Troll øyne (røde)
+                ctx.fillStyle = t.stunTimer > 0 ? '#38bdf8' : '#ef4444';
+                ctx.beginPath();
+                ctx.arc(-6, -4, 4, 0, Math.PI * 2);
+                ctx.arc(6, -4, 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Helsebar
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(-22, -t.radius - 12, 44, 6);
+                ctx.fillStyle = '#ef4444';
+                ctx.fillRect(-22, -t.radius - 12, 44 * (t.hp / t.maxHp), 6);
+
+                ctx.restore();
+            });
+
+            // 3. Tegn Lys-kloner
+            clones.forEach(c => {
+                ctx.save();
+                ctx.translate(c.x, c.y);
+                ctx.fillStyle = 'rgba(252, 211, 77, 0.75)';
+                ctx.beginPath();
+                ctx.arc(0, 0, 16, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+
+            // 4. Tegn Spiller (Vandreren med kappe)
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            if (player.isStealth) {
+                ctx.globalAlpha = 0.35;
+            }
+
+            // Skygge
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.beginPath();
+            ctx.ellipse(0, 16, 14, 6, 0, 0, Math.PI*2);
+            ctx.fill();
+
+            // Rotér mot musen
+            ctx.rotate(player.angle);
+
+            // Kappe & kropp
+            ctx.fillStyle = '#1e3a2f';
+            ctx.beginPath();
+            ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.lineWidth = 2.5;
+            ctx.strokeStyle = '#0f231b';
+            ctx.stroke();
+
+            // Stav med Vanum-krystall i enden
+            ctx.fillStyle = '#785438';
+            ctx.fillRect(4, -3, 26, 6);
+            ctx.fillStyle = '#38bdf8';
+            ctx.beginPath();
+            ctx.arc(30, 0, 7, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowColor = '#38bdf8';
+            ctx.shadowBlur = 12;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            ctx.restore();
+
+            // 5. Tegn Trær (Zelda-stil sirkulære kroner som står over spilleren for dybde)
+            worldObjects.forEach(obj => {
+                if (obj.type === 'tree') {
+                    // Trestamme
+                    ctx.fillStyle = '#3e2714';
+                    ctx.beginPath();
+                    ctx.arc(obj.x, obj.y + 10, 12, 0, Math.PI * 2);
+                    ctx.fill();
+                    // Trekrone
+                    ctx.fillStyle = '#19331b';
+                    ctx.beginPath();
+                    ctx.arc(obj.x, obj.y - 8, obj.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#0d1a0e';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                }
+            });
+
+            // 6. Tegn Prosjektiler
+            projectiles.forEach(p => {
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.fillStyle = p.isFireball ? '#f97316' : '#38bdf8';
+                ctx.shadowColor = p.isFireball ? '#f97316' : '#38bdf8';
+                ctx.shadowBlur = 14;
+                ctx.beginPath();
+                ctx.arc(0, 0, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+
+            // 7. Flytende tekster (skadepoeng)
+            floatingTexts.forEach(ft => {
+                ctx.save();
+                ctx.font = 'bold 15px Cinzel, serif';
+                ctx.fillStyle = ft.color;
+                ctx.shadowColor = '#000';
+                ctx.shadowBlur = 4;
+                ctx.fillText(ft.text, ft.x, ft.y);
+                ctx.restore();
+            });
+
+            ctx.restore();
+
+            // 8. Tegn Minikart
+            drawMinimap();
+        }
+
+        function drawMinimap() {
+            minimapCtx.clearRect(0, 0, minimapCanvas.width, minimapCanvas.height);
+            const scale = minimapCanvas.width / WORLD_WIDTH;
+
+            // Bakgrunn minikart
+            minimapCtx.fillStyle = '#0f172a';
+            minimapCtx.fillRect(0, 0, minimapCanvas.width, minimapCanvas.height);
+
+            // Ruin i midten på minikart
+            minimapCtx.fillStyle = '#475569';
+            minimapCtx.fillRect((WORLD_WIDTH/2 - 50)*scale, (WORLD_HEIGHT/2 - 50)*scale, 100*scale, 100*scale);
+
+            // Troll på minikart
+            minimapCtx.fillStyle = '#ef4444';
+            trolls.forEach(t => {
+                minimapCtx.fillRect(t.x * scale - 1.5, t.y * scale - 1.5, 3, 3);
+            });
+
+            // Spiller på minikart
+            minimapCtx.fillStyle = '#38bdf8';
+            minimapCtx.beginPath();
+            minimapCtx.arc(player.x * scale, player.y * scale, 3, 0, Math.PI * 2);
+            minimapCtx.fill();
+        }
+
+        function triggerGameOver() {
+            gameState = 'GAMEOVER';
+            document.getElementById('hudTop').classList.add('hidden');
+            document.getElementById('hudBottom').classList.add('hidden');
+            document.getElementById('gameOverScreen').classList.remove('hidden');
+            document.getElementById('endWave').textContent = wave;
+            document.getElementById('endKills').textContent = kills;
+            document.getElementById('endScore').textContent = score;
+        }
+
+        // --- KNAPPARUTINE & BILDEOPPLADNING ---
+        document.getElementById('startBtn').onclick = startGame;
+        document.getElementById('restartBtn').onclick = startGame;
+
+        document.getElementById('muteBtn').onclick = () => {
+            initAudio();
+            isMuted = !isMuted;
+            document.getElementById('soundOnIcon').classList.toggle('hidden', isMuted);
+            document.getElementById('soundOffIcon').classList.toggle('hidden', !isMuted);
+        };
+
+        // Egendefinert omslagsbilde opplasting
+        document.getElementById('coverUploadInput').onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const dataUrl = event.target.result;
+                    
+                    // Bakgrunn
+                    const bgImg = document.getElementById('customCoverBg');
+                    bgImg.src = dataUrl;
+                    bgImg.classList.remove('hidden');
+                    document.getElementById('defaultCoverArt').classList.add('hidden');
+
+                    // Miniatyr
+                    const thumbImg = document.getElementById('coverThumbImg');
+                    thumbImg.src = dataUrl;
+                    thumbImg.classList.remove('hidden');
+                    document.getElementById('coverThumbSvg').classList.add('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        };
+
+        // Spill løkke
+        function mainLoop() {
+            update();
+            draw();
+            requestAnimationFrame(mainLoop);
+        }
+        requestAnimationFrame(mainLoop);
+    </script>
+</body>
+</html>
